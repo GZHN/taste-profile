@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">Taste Profile</title>
+  <rect width="1024" height="1024" rx="112" fill="#162133"/>
+  <rect x="229" y="329" width="565" height="66" rx="33" fill="#F9F8F3"/>
+  <rect x="229" y="472" width="374" height="66" rx="33" fill="#96979B"/>
+  <rect x="229" y="615" width="565" height="66" rx="33" fill="#F9F8F3"/>
+  <path fill="#F9F8F3" fill-rule="evenodd" d="M652.50 505.00a68.00 68.00 0 1 0 136.00 0a68.00 68.00 0 1 0 -136.00 0z M696.46 540.36 L685.14 529.04 L709.19 505.00 L685.14 480.96 L696.46 469.64 L720.50 493.69 L744.54 469.64 L755.86 480.96 L731.81 505.00 L755.86 529.04 L744.54 540.36 L720.50 516.31Z"/>
+</svg>
