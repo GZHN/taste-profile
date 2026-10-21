@@ -1,12 +1,11 @@
 <a id="readme-top"></a>
 
 <!-- PROJECT SHIELDS -->
+
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
-
-
 
 <!-- PROJECT LOGO -->
 <br />
@@ -28,8 +27,6 @@
     <a href="https://github.com/GZHN/taste-profile/issues/new?labels=enhancement">Request Feature</a>
   </p>
 </div>
-
-
 
 <!-- TABLE OF CONTENTS -->
 <details>
@@ -57,9 +54,8 @@
   </ol>
 </details>
 
-
-
 <!-- ABOUT THE PROJECT -->
+
 ## About The Project
 
 [![Taste Profile listing excluded playlists][product-screenshot]](https://support.spotify.com/us/article/exclude-playlists-or-tracks-from-your-taste-profile/)
@@ -76,16 +72,14 @@ The same setting in Spotify's playlist menu:
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
-
 <!-- GETTING STARTED -->
+
 ## Getting Started
 
 ### Prerequisites
 
-* [Spicetify](https://spicetify.app/) 2.46 or newer
-* A Spotify client that Spicetify has already patched (`spicetify backup apply` on a fresh install)
+- [Spicetify](https://spicetify.app/) 2.46 or newer
+- A Spotify client that Spicetify has already patched (`spicetify backup apply` on a fresh install)
 
 ### Installation
 
@@ -95,9 +89,9 @@ The same setting in Spotify's playlist menu:
    ```
 2. Copy the `taste-profile` folder to your Spicetify custom apps directory. The folder name must stay `taste-profile`.
 
-   | Platform | Path |
-   | --- | --- |
-   | Windows | `%appdata%\spicetify\CustomApps\taste-profile` |
+   | Platform      | Path                                           |
+   | ------------- | ---------------------------------------------- |
+   | Windows       | `%appdata%\spicetify\CustomApps\taste-profile` |
    | macOS / Linux | `~/.config/spicetify/CustomApps/taste-profile` |
 
 3. Enable the app and restart Spotify
@@ -118,36 +112,33 @@ spicetify apply
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- USAGE EXAMPLES -->
+
 ## Usage
 
-* Filter by **All**, **Excluded**, **Included**, or **Not in library**
-* **Not in library** lists playlists you excluded and later removed from your library
-* Search by playlist name, folder, or owner
-* Lists stay in alphabetical order
-* The reload icon beside the title loads the library again and shows progress
-* The last filter and search are restored the next time you open the app
-* **Exclude** or **Include** updates the same setting as the playlist context menu
-* Select playlists to include or exclude them together, or use **Include all** / **Exclude all** for the current view
-* **Undo** restores the last change
-* Select a playlist name to open it
+- Filter by **All**, **Excluded**, **Included**, or **Not in library**
+- **Not in library** lists playlists you excluded and later removed from your library
+- Search by playlist name, folder, or owner
+- Lists stay in alphabetical order
+- The reload icon beside the title loads the library again and shows progress
+- The last filter and search are restored the next time you open the app
+- **Exclude** or **Include** updates the same setting as the playlist context menu
+- Select playlists to include or exclude them together, or use **Include all** / **Exclude all** for the current view
+- **Undo** restores the last change
+- Select a playlist name to open it
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- ROADMAP -->
+
 ## Roadmap
 
 See the [open issues](https://github.com/GZHN/taste-profile/issues) for proposed features and known issues.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- CONTRIBUTING -->
+
 ## Contributing
 
 If you have a suggestion that would make this better, fork the repo and open a pull request. You can also open an issue with the tag "enhancement".
@@ -166,9 +157,8 @@ If you have a suggestion that would make this better, fork the repo and open a p
   <img src="https://contrib.rocks/image?repo=GZHN/taste-profile" alt="Contributors" />
 </a>
 
-
-
 <!-- CONTACT -->
+
 ## Contact
 
 GZHN — [GitHub](https://github.com/GZHN)
@@ -177,19 +167,17 @@ Project link: [https://github.com/GZHN/taste-profile](https://github.com/GZHN/ta
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- ACKNOWLEDGMENTS -->
+
 ## Acknowledgments
 
-* [Spicetify](https://spicetify.app/)
-* [Exclude playlists or tracks from your taste profile](https://support.spotify.com/us/article/exclude-playlists-or-tracks-from-your-taste-profile/) (Spotify Support)
+- [Spicetify](https://spicetify.app/)
+- [Exclude playlists or tracks from your taste profile](https://support.spotify.com/us/article/exclude-playlists-or-tracks-from-your-taste-profile/) (Spotify Support)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- MARKDOWN LINKS & IMAGES -->
+
 [contributors-shield]: https://img.shields.io/github/contributors/GZHN/taste-profile.svg?style=for-the-badge
 [contributors-url]: https://github.com/GZHN/taste-profile/graphs/contributors
 [forks-shield]: https://img.shields.io/github/forks/GZHN/taste-profile.svg?style=for-the-badge
@@ -198,6 +186,8 @@ Project link: [https://github.com/GZHN/taste-profile](https://github.com/GZHN/ta
 [stars-url]: https://github.com/GZHN/taste-profile/stargazers
 [issues-shield]: https://img.shields.io/github/issues/GZHN/taste-profile.svg?style=for-the-badge
 [issues-url]: https://github.com/GZHN/taste-profile/issues
+[spotify-shield]: https://img.shields.io/badge/Spotify-1ED760?&style=for-the-badge&logo=spotify&logoColor=white
+[spotify-url]: https://spotify.com
 [product-screenshot]: screenshots/taste-profile.png
 [menu-screenshot]: screenshots/spotify-menu.png
 [spicetify-shield]: https://img.shields.io/badge/Spicetify-1ED760?style=for-the-badge
