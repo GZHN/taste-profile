@@ -8,6 +8,12 @@ In Spotify, that setting lives on each playlist menu, so there is no list of whi
 
 Playlists you excluded and later removed from your library stay listed until you include them again.
 
+![Taste Profile listing excluded playlists](screenshots/taste-profile.png)
+
+The same setting in Spotify's playlist menu:
+
+![Exclude from your taste profile](screenshots/spotify-menu.png)
+
 ## Install
 
 Copy this folder to your Spicetify custom apps directory. The folder name must stay `taste-profile`.
