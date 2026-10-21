@@ -1,0 +1,6 @@
+{
+	"name": "Taste Profile",
+	"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 16 16\" fill=\"currentColor\"><path d=\"M1.5 3.5h13v1.5h-13zm0 4h9v1.5h-9zm0 4h13v1.5h-13z\"/></svg>",
+	"active-icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 16 16\" fill=\"currentColor\"><path d=\"M1.5 3h13v2h-13zm0 4h9v2h-9zm0 4h13v2h-13z\"/></svg>",
+	"subfiles": []
+}
