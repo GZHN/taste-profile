@@ -8,7 +8,7 @@ In Spotify, that setting lives on each playlist menu, so there is no list of whi
 
 Playlists you excluded and later removed from your library stay listed until you include them again.
 
-![Taste Profile listing excluded playlists](screenshots/taste-profile.png)
+<img src="screenshots/taste-profile.png" alt="Taste Profile listing excluded playlists" width="600"/>
 
 The same setting in Spotify's playlist menu:
 
