@@ -11,7 +11,10 @@
 <br />
 <div align="center">
   <a href="https://github.com/GZHN/taste-profile">
-    <img src="assets/logo/logo-light.svg" alt="Taste Profile" width="420">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logo/logo.svg">
+      <img src="assets/logo/logo-light.svg" alt="Taste Profile" width="420">
+    </picture>
   </a>
 
   <p align="center">
