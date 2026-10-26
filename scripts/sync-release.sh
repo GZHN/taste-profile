@@ -63,11 +63,11 @@ fi
 echo "Syncing $PACKAGE_ROOT -> $RELEASE_DIR"
 
 # Remove previously synced dirs/files we manage (keep .git)
-for name in assets dist scripts src README.md manifest.json package.json package-lock.json tsconfig.json .gitattributes .markdownlint.json; do
+for name in assets dist scripts src README.md CHANGELOG.md manifest.json package.json package-lock.json tsconfig.json .gitattributes .markdownlint.json; do
   rm -rf "$RELEASE_DIR/$name"
 done
 
-for name in assets dist scripts src README.md manifest.json package.json package-lock.json tsconfig.json .gitattributes .markdownlint.json; do
+for name in assets dist scripts src README.md CHANGELOG.md manifest.json package.json package-lock.json tsconfig.json .gitattributes .markdownlint.json; do
   if [ -e "$PACKAGE_ROOT/$name" ]; then
     cp -R "$PACKAGE_ROOT/$name" "$RELEASE_DIR/$name"
   fi

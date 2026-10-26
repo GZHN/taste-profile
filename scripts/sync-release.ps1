@@ -86,7 +86,7 @@ Thumbs.db
 "@
     Set-Content -LiteralPath (Join-Path $ReleaseDir '.gitignore') -Value $releaseGitignore.TrimEnd() -Encoding utf8
 
-    foreach ($name in @('dist\index.js', 'dist\manifest.json', 'dist\style.css', 'manifest.json', 'README.md', 'scripts\install.ps1', 'scripts\sync-release.ps1')) {
+    foreach ($name in @('dist\index.js', 'dist\manifest.json', 'dist\style.css', 'manifest.json', 'README.md', 'CHANGELOG.md', 'scripts\install.ps1', 'scripts\sync-release.ps1')) {
         if (-not (Test-Path -LiteralPath (Join-Path $ReleaseDir $name))) {
             throw "Missing after sync: $name"
         }

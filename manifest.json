@@ -1,6 +1,6 @@
 {
   "name": "Taste Profile",
-  "description": "A Spicetify app that lists playlists excluded from your taste profile, so you can include or exclude them from one place.",
+  "description": "A Spicetify app that lists playlists and tracks excluded from your taste profile, so you can exclude them or remove exclusions from one place.",
   "preview": "assets/screenshots/taste-profile.png",
   "readme": "README.md",
   "branch": "main",
@@ -10,5 +10,5 @@
       "url": "https://github.com/GZHN"
     }
   ],
-  "tags": ["playlist", "taste-profile", "Discover Weekly", "Wrapped"]
+  "tags": ["playlist", "track", "taste-profile", "Discover Weekly", "Wrapped"]
 }

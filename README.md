@@ -11,13 +11,11 @@
 <br />
 <div align="center">
   <a href="https://github.com/GZHN/taste-profile">
-    <img src="assets/logo/logo.svg" alt="Taste Profile logo" width="120" height="120">
+    <img src="assets/logo/logo-light.svg" alt="Taste Profile" width="420">
   </a>
 
-<h3 align="center">Taste Profile</h3>
-
   <p align="center">
-    A Spicetify app that lists playlists excluded from your taste profile, so you can include or exclude them from one place.
+    A Spicetify app that lists playlists and tracks excluded from your taste profile, so you can exclude them or remove exclusions from one place.
     <br />
     <a href="https://support.spotify.com/us/article/exclude-playlists-or-tracks-from-your-taste-profile/"><strong>How Spotify uses your taste profile »</strong></a>
     <br />
@@ -32,12 +30,7 @@
 <details>
   <summary>Table of Contents</summary>
   <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
-    </li>
+    <li><a href="#about-the-project">About The Project</a></li>
     <li>
       <a href="#getting-started">Getting Started</a>
       <ul>
@@ -47,6 +40,7 @@
       </ul>
     </li>
     <li><a href="#usage">Usage</a></li>
+    <li><a href="#changelog">Changelog</a></li>
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#contact">Contact</a></li>
@@ -62,11 +56,13 @@
 
 Taste profile is Spotify's interpretation of your taste based on what you listen to and how you listen to it. Spotify uses it to personalize recommendations, like Discover Weekly and your Home page, and experiences with taste summaries, like Wrapped and Blend.
 
-In Spotify, that setting lives on each playlist menu, so there is no list of which playlists are excluded. This app shows them together, so you can see the setting and change it for any playlist from one place.
+In Spotify, that setting lives on each playlist or track menu, so there is no list of what is excluded. This app shows them together in two views: **Playlists** and **Excluded Tracks**. Excluding a playlist only affects listens from that playlist; excluding a track affects that song everywhere. Removing a playlist exclusion does not remove separately excluded tracks.
 
-Playlists you excluded and later removed from your library stay listed until you include them again.
+Only playlists currently in your library are listed. Excluded tracks are listed until you remove their exclusion (there is no “all not-excluded tracks” view — Spotify only stores exclusions).
 
-The same setting in Spotify's playlist menu:
+The UI follows Spotify’s library patterns: Compact/List playlist rows, filter chips, search/sort controls, and contextual bulk actions. Styling is scoped under `.taste` and prefers Spicetify theme tokens (`--spice-*`) with Spotify-dark fallbacks.
+
+The same setting in Spotify's playlist or track menu:
 
 ![Exclude from your taste profile][menu-screenshot]
 
@@ -105,15 +101,23 @@ npm run build-local    # → dist/
 
 ### Publish an update
 
-From this package (expects a clone at `GitHub/taste-profile` next to the monorepo):
+From this package (expects a clone at `GitHub/taste-profile` next to the monorepo). Bump `package.json` `"version"`, update [`CHANGELOG.md`](CHANGELOG.md), then sync (`src/version.ts` is regenerated on build).
 
 ```bash
+# Windows (default npm script) — mirrors the package into the release clone
 npm run sync-release
 # or build + copy + commit + push in one go:
-npm run sync-release -- -Push -Message "Describe the update"
+npm run sync-release -- -Push -Message "Release vX.Y.Z"
+
+# macOS / Linux — copies a fixed set of package files (not a full mirror)
+npm run sync-release:sh
+# or:
+npm run sync-release:sh -- --push -m "Release vX.Y.Z"
 ```
 
-Then open a GitHub release if you want (`gh release create vX.Y.Z` in the release repo). Marketplace reads `main`, so a push with updated `dist/` is enough for install scripts.
+The PowerShell script (`scripts/sync-release.ps1`) robocopy-mirrors the package (excluding `node_modules` / `.git`). The shell script (`scripts/sync-release.sh`) copies a fixed allowlist (`src`, `dist`, `assets`, `scripts`, `README.md`, `CHANGELOG.md`, manifests, and package metadata). Prefer the Windows script when both environments are available so the release clone stays a full mirror.
+
+Then open a GitHub release (`gh release create vX.Y.Z` in the release repo) and paste the matching `CHANGELOG.md` section. Marketplace reads `main`, so a push with updated `dist/` is enough for install scripts.
 
 Root `manifest.json` is for [Marketplace](https://github.com/spicetify/marketplace/wiki/Publishing-to-Marketplace) (topic `spicetify-apps`).
 
@@ -174,16 +178,25 @@ spicetify apply
 
 ## Usage
 
-- Filter by **All**, **Excluded**, **Included**, or **Not in library**
-- **Not in library** lists playlists you excluded and later removed from your library
-- Search by playlist name, folder, or owner
-- Lists stay in alphabetical order
-- The reload icon beside the title loads the library again and shows progress
-- The last filter and search are restored the next time you open the app
-- **Exclude** or **Include** updates the same setting as the playlist context menu
-- Select playlists to include or exclude them together, or use **Include all** / **Exclude all** for the current view
+- Switch between **Playlists** and **Excluded Tracks** tabs
+- On Playlists: filter by **All**, **Excluded**, or **Not excluded**
+- Search playlists by name, folder, or owner — or tracks by name, artists, or album
+- Sort playlists by custom/library order, name, track count, or recently excluded; sort tracks by name, artist, album, or recently excluded
+- Switch playlist **View as** Compact (no artwork, denser rows) or List (artwork + metadata); preference is remembered
+- **Refresh** reloads exclusions and shows progress; last-updated time appears under the button
+- The last tab, filters, search, sort, and playlist view mode are restored the next time you open the app
+- **Exclude** or **Remove exclusion** updates the same setting as the playlist or track context menu
+- Select rows for bulk exclude / remove-exclusion actions; large batches ask for confirmation
 - **Undo** restores the last change
-- Select a playlist name to open it
+- Click a playlist or track name to open it in Spotify
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- CHANGELOG -->
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history. Latest: **v1.6.0**.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -244,9 +257,5 @@ Project link: [https://github.com/GZHN/taste-profile](https://github.com/GZHN/ta
 [stars-url]: https://github.com/GZHN/taste-profile/stargazers
 [issues-shield]: https://img.shields.io/github/issues/GZHN/taste-profile.svg?style=for-the-badge
 [issues-url]: https://github.com/GZHN/taste-profile/issues
-[spotify-shield]: https://img.shields.io/badge/Spotify-1ED760?&style=for-the-badge&logo=spotify&logoColor=white
-[spotify-url]: https://spotify.com
 [product-screenshot]: assets/screenshots/taste-profile.png
 [menu-screenshot]: assets/screenshots/spotify-menu.png
-[spicetify-shield]: https://img.shields.io/badge/Spicetify-1ED760?style=for-the-badge
-[spicetify-url]: https://spicetify.app/
