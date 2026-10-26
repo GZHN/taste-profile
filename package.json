@@ -5,7 +5,9 @@
   "scripts": {
     "build": "spicetify-creator",
     "build-local": "spicetify-creator --out=dist --minify",
-    "watch": "spicetify-creator --watch"
+    "watch": "spicetify-creator --watch",
+    "sync-release": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/sync-release.ps1",
+    "sync-release:sh": "sh ./scripts/sync-release.sh"
   },
   "license": "MIT",
   "devDependencies": {

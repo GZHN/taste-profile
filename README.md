@@ -103,6 +103,18 @@ For Marketplace / install scripts, commit a local build:
 npm run build-local    # → dist/
 ```
 
+### Publish an update
+
+From this package (expects a clone at `GitHub/taste-profile` next to the monorepo):
+
+```bash
+npm run sync-release
+# or build + copy + commit + push in one go:
+npm run sync-release -- -Push -Message "Describe the update"
+```
+
+Then open a GitHub release if you want (`gh release create vX.Y.Z` in the release repo). Marketplace reads `main`, so a push with updated `dist/` is enough for install scripts.
+
 Root `manifest.json` is for [Marketplace](https://github.com/spicetify/marketplace/wiki/Publishing-to-Marketplace) (topic `spicetify-apps`).
 
 ### Prerequisites
