@@ -367,6 +367,19 @@ function App() {
 		setSelected(new Set());
 	}
 
+	function reloadPlaylists() {
+		if (status === "loading") return;
+		setStatus("loading");
+		setError("");
+		setProgress({ value: 0, label: "Loading playlists" });
+		loadWithRetry()
+			.then(() => setStatus("ready"))
+			.catch(() => {
+				setError("Playlists could not be loaded.");
+				setStatus("error");
+			});
+	}
+
 	const needle = query.trim().toLocaleLowerCase("en");
 	const rows = react.useMemo(() => {
 		return uniqueRows([...library, ...outside])
@@ -416,19 +429,10 @@ function App() {
 						"aria-label": "Reload playlists",
 						title: "Reload playlists",
 						disabled: status === "loading",
-						onClick: () => {
-							setStatus("loading");
-							setError("");
-							setProgress({ value: 0, label: "Loading playlists" });
-							loadWithRetry()
-								.then(() => setStatus("ready"))
-								.catch(() => {
-									setError("Playlists could not be loaded.");
-									setStatus("error");
-								});
-						},
+						onClick: reloadPlaylists,
 					},
-					react.createElement(ReloadIcon)
+					react.createElement(ReloadIcon),
+					react.createElement("span", null, "Reload playlists")
 				)
 			),
 			react.createElement(
@@ -504,7 +508,22 @@ function App() {
 				})
 			: null,
 		status === "loading" ? react.createElement(Progress, { value: progress.value, label: progress.label }) : null,
-		status === "error" ? react.createElement("p", { className: "taste__status", role: "alert" }, error) : null,
+		status === "error"
+			? react.createElement(
+					"div",
+					{ className: "taste__status taste__status--error" },
+					react.createElement("p", { role: "alert" }, error),
+					react.createElement(
+						"button",
+						{
+							type: "button",
+							className: "taste__action",
+							onClick: reloadPlaylists,
+						},
+						"Reload playlists"
+					)
+				)
+			: null,
 		status === "ready" && !visible.length ? react.createElement("p", { className: "taste__status" }, emptyMessage) : null,
 		status === "ready" && visible.length
 			? react.createElement(

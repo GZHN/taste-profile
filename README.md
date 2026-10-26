@@ -11,7 +11,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/GZHN/taste-profile">
-    <img src="Assets/logo.svg" alt="Taste Profile logo" width="120" height="120">
+    <img src="assets/logo/logo.svg" alt="Taste Profile logo" width="120" height="120">
   </a>
 
 <h3 align="center">Taste Profile</h3>
@@ -83,11 +83,22 @@ The same setting in Spotify's playlist menu:
 
 ### Installation
 
+#### Installer
+
+| Platform       | Command |
+| -------------- | ------- |
+| Windows        | `iwr -useb https://raw.githubusercontent.com/GZHN/taste-profile/master/scripts/install.ps1 \| iex` |
+| macOS / Linux  | `curl -fsSL https://raw.githubusercontent.com/GZHN/taste-profile/master/scripts/install.sh \| sh` |
+
+From a clone, run `.\scripts\install.ps1` or `sh scripts/install.sh`.
+
+#### Manual
+
 1. Clone the repo
    ```bash
    git clone https://github.com/GZHN/taste-profile.git
    ```
-2. Copy the `taste-profile` folder to your Spicetify custom apps directory. The folder name must stay `taste-profile`.
+2. Copy the contents of `app/` into a folder named `taste-profile` under your Spicetify custom apps directory.
 
    | Platform      | Path                                           |
    | ------------- | ---------------------------------------------- |
@@ -188,7 +199,7 @@ Project link: [https://github.com/GZHN/taste-profile](https://github.com/GZHN/ta
 [issues-url]: https://github.com/GZHN/taste-profile/issues
 [spotify-shield]: https://img.shields.io/badge/Spotify-1ED760?&style=for-the-badge&logo=spotify&logoColor=white
 [spotify-url]: https://spotify.com
-[product-screenshot]: screenshots/taste-profile.png
-[menu-screenshot]: screenshots/spotify-menu.png
+[product-screenshot]: assets/screenshots/taste-profile.png
+[menu-screenshot]: assets/screenshots/spotify-menu.png
 [spicetify-shield]: https://img.shields.io/badge/Spicetify-1ED760?style=for-the-badge
 [spicetify-url]: https://spicetify.app/

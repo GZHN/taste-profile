@@ -119,15 +119,20 @@
 .taste__reload {
 	display: inline-flex;
 	flex: 0 0 auto;
+	gap: 8px;
 	align-items: center;
 	justify-content: center;
-	width: 36px;
-	height: 36px;
+	min-height: 36px;
 	border: 0;
-	border-radius: 50%;
+	border-radius: 999px;
+	padding: 8px 14px 8px 12px;
 	background: rgba(255, 255, 255, 0.08);
 	color: var(--spice-text);
+	font: inherit;
+	font-size: 13px;
+	font-weight: 700;
 	cursor: pointer;
+	white-space: nowrap;
 }
 
 .taste__reload:disabled {
@@ -240,6 +245,17 @@
 .taste__status {
 	margin: 28px 0;
 	color: var(--spice-subtext);
+}
+
+.taste__status--error {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 14px;
+}
+
+.taste__status--error p {
+	margin: 0;
 }
 
 .taste__group h2 {

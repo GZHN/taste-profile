@@ -1,8 +1,8 @@
 {
 	"name": "Taste Profile",
 	"description": "A Spicetify app that lists playlists excluded from your taste profile, so you can include or exclude them from one place.",
-	"preview": "screenshots/taste-profile.png",
-	"readme": "README.md",
+	"preview": "../assets/screenshots/taste-profile.png",
+	"readme": "../README.md",
 	"branch": "master",
 	"authors": [
 		{
