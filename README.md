@@ -15,7 +15,7 @@
   </a>
 
   <p align="center">
-    A Spicetify app that lists playlists and tracks excluded from your taste profile, so you can exclude them or remove exclusions from one place.
+    Take control of your Spotify taste profile. Easily manage playlist and track exclusions, individually or in bulk, directly within Spotify.
     <br />
     <a href="https://support.spotify.com/us/article/exclude-playlists-or-tracks-from-your-taste-profile/"><strong>How Spotify uses your taste profile »</strong></a>
     <br />
@@ -54,13 +54,22 @@
 
 [![Taste Profile listing excluded playlists][product-screenshot]](https://support.spotify.com/us/article/exclude-playlists-or-tracks-from-your-taste-profile/)
 
-Taste profile is Spotify's interpretation of your taste based on what you listen to and how you listen to it. Spotify uses it to personalize recommendations, like Discover Weekly and your Home page, and experiences with taste summaries, like Wrapped and Blend.
+**Taste Profile** is a Spicetify custom app that gives you a centralized way to manage which playlists and tracks are excluded from your Spotify taste profile.
 
-In Spotify, that setting lives on each playlist or track menu, so there is no list of what is excluded. This app shows them together in two views: **Playlists** and **Excluded Tracks**. Excluding a playlist only affects listens from that playlist; excluding a track affects that song everywhere. Removing a playlist exclusion does not remove separately excluded tracks.
+Spotify uses your listening activity to personalize recommendations and experiences such as Discover Weekly, Wrapped, and Blend. Taste Profile makes it easier to control which music contributes to those experiences without navigating through individual playlist menus.
 
-Only playlists currently in your library are listed. Excluded tracks are listed until you remove their exclusion (there is no “all not-excluded tracks” view — Spotify only stores exclusions).
+**Key features:**
 
-The UI follows Spotify’s library patterns: Compact/List playlist rows, filter chips, search/sort controls, and contextual bulk actions. Styling is scoped under `.taste` and prefers Spicetify theme tokens (`--spice-*`) with Spotify-dark fallbacks.
+- **Playlist management:** View and manage taste-profile exclusions across your playlists from one interface.
+- **Excluded tracks:** Browse and remove exclusions from individual tracks.
+- **Bulk actions:** Exclude or restore multiple playlists at once.
+- **Search and filtering:** Quickly find playlists and tracks, filter by exclusion status, and organize results.
+- **Flexible layouts:** Switch between standard and compact playlist views.
+- **Spotify-native experience:** A clean interface designed to blend seamlessly into Spotify through Spicetify.
+
+Whether you use playlists for discovering new music, background listening, or organizing different genres, Taste Profile helps you keep your Spotify recommendations aligned with your actual musical preferences.
+
+Excluding a playlist only affects listens from that playlist; excluding a track affects that song everywhere. Removing a playlist exclusion does not remove separately excluded tracks. Only playlists currently in your library are listed. Excluded tracks stay listed until you remove their exclusion (Spotify only stores exclusions — there is no “all not-excluded tracks” view).
 
 The same setting in Spotify's playlist or track menu:
 
@@ -196,7 +205,7 @@ spicetify apply
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for version history. Latest: **v1.6.0**.
+See [CHANGELOG.md](CHANGELOG.md) for version history. Latest: **v1.6.1**.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

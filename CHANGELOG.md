@@ -5,6 +5,13 @@ All notable changes to Taste Profile are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-10-27
+
+### Changed
+
+- App, Marketplace, and README descriptions rewritten to emphasize taking control of taste-profile exclusions (playlists and tracks, individually or in bulk)
+- In-app header subtitle, About panel, and Playlists / Excluded Tracks section copy aligned with the new positioning
+
 ## [1.6.0] - 2026-10-27
 
 Public Marketplace release covering everything since [1.3.0] (including unpublished monorepo bumps 1.4.0 and 1.5.0).
@@ -91,6 +98,7 @@ First release — list playlists excluded from your Spotify taste profile and ch
 - Exclude / include a playlist, a selection, or everything in the current view
 - Undo the last change
 
+[1.6.1]: https://github.com/GZHN/taste-profile/releases/tag/v1.6.1
 [1.6.0]: https://github.com/GZHN/taste-profile/releases/tag/v1.6.0
 [1.5.0]: https://github.com/GZHN/taste-profile/releases/tag/v1.6.0
 [1.4.0]: https://github.com/GZHN/taste-profile/releases/tag/v1.6.0

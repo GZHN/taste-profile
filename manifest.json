@@ -1,6 +1,6 @@
 {
   "name": "Taste Profile",
-  "description": "A Spicetify app that lists playlists and tracks excluded from your taste profile, so you can exclude them or remove exclusions from one place.",
+  "description": "Take control of your Spotify taste profile. Easily manage playlist and track exclusions, individually or in bulk, directly within Spotify.",
   "preview": "assets/screenshots/taste-profile.png",
   "readme": "README.md",
   "branch": "main",

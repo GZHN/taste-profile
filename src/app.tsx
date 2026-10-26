@@ -972,7 +972,7 @@ export default function App() {
             </span>
           </div>
           <p className="taste__subtitle">
-            Manage which playlists and tracks are excluded from your Spotify taste profile.
+            Take control of which playlists and tracks are excluded from your Spotify taste profile.
           </p>
         </div>
         <div className="taste__header-actions">
@@ -980,10 +980,10 @@ export default function App() {
             <button
               type="button"
               className="taste__icon-btn"
-              aria-label="About taste profile"
+              aria-label="About Taste Profile"
               aria-expanded={helpOpen}
               aria-controls="taste-help"
-              title="About taste profile"
+              title="About Taste Profile"
               onClick={() => setHelpOpen((open) => !open)}
             >
               <InfoIcon />
@@ -1011,9 +1011,9 @@ export default function App() {
       {helpOpen ? (
         <div className="taste__help" id="taste-help">
           <p>
-            Taste profile is Spotify&apos;s interpretation of your taste based on what you listen to and how you listen
-            to it. Spotify uses it to personalize recommendations and experiences like Discover Weekly, Home, Wrapped,
-            and Blend.{" "}
+            Taste Profile gives you a centralized way to manage which playlists and tracks are excluded from your
+            Spotify taste profile. Spotify uses your listening activity to personalize recommendations and experiences
+            such as Discover Weekly, Wrapped, and Blend.{" "}
             <a
               href={SUPPORT_URL}
               target="_blank"
@@ -1027,8 +1027,10 @@ export default function App() {
             </a>
           </p>
           <p>
-            Excluding a playlist only affects listens from that playlist. Excluding a track affects that song
-            everywhere. Removing a playlist exclusion does not remove separately excluded tracks.
+            Manage exclusions individually or in bulk, search and filter results, and switch between standard and
+            compact playlist views — without digging through each playlist or track menu. Excluding a playlist only
+            affects listens from that playlist; excluding a track affects that song everywhere. Removing a playlist
+            exclusion does not remove separately excluded tracks.
           </p>
         </div>
       ) : null}
@@ -1087,7 +1089,9 @@ export default function App() {
           <div className="taste__section-head">
             <div>
               <h2>Playlists</h2>
-              <p className="taste__section-copy">Control which playlists influence your taste profile.</p>
+              <p className="taste__section-copy">
+                View and manage taste-profile exclusions across your playlists from one interface.
+              </p>
             </div>
           </div>
 
@@ -1248,7 +1252,7 @@ export default function App() {
             <div>
               <h2>Excluded Tracks</h2>
               <p className="taste__section-copy">
-                These tracks are currently excluded from your Spotify taste profile.
+                Browse and remove exclusions from individual tracks that are left out of your taste profile.
               </p>
             </div>
             <div className="taste__toolbar taste__toolbar--compact">
