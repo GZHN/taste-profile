@@ -1,60 +1,64 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./css/app.css";
 import { APP_VERSION } from "./version";
+import { WindowedList } from "./windowed-list";
+import {
+  DeadlineError,
+  type DecoratedTrack,
+  type DisplayPlaylist,
+  type DisplayTrack,
+  type ExclusionFilter,
+  type LibraryNode,
+  type PlaylistDisplay,
+  type PlaylistRow,
+  type PlaylistSort,
+  type SavedView,
+  type TabId,
+  type TrackRow,
+  type TrackSort,
+  comparePlaylistSort,
+  compareTrackSort,
+  errorDetail,
+  excludedMap,
+  failedTrack,
+  flattenLibrary,
+  formatDate,
+  formatDuration,
+  formatRelative,
+  isPlaylistUri,
+  isTrackUri,
+  itemCountLabel,
+  loadFailureCopy,
+  matchesPlaylistQuery,
+  matchesTrackQuery,
+  ownerLabel,
+  parseSavedView,
+  playlistCount,
+  resolveDecoratedChunk,
+  restoreExcluded,
+  snapshotExcluded,
+  stampExcluded,
+  trackCount,
+  trackCountLabel,
+  uniquePlaylists,
+  uniqueTracks,
+  undoWrites,
+  withDeadline,
+} from "./model";
 
 const SET_NAME = "ignoreinrecs";
 const SUPPORT_URL =
   "https://support.spotify.com/us/article/exclude-playlists-or-tracks-from-your-taste-profile/";
 const VIEW_KEY = "taste-profile:view";
 const MASS_CONFIRM_MIN = 11;
-/** Wall-clock budget for loadWithRetry before surfacing a recoverable error. */
+/**
+ * Wall-clock budget for one load. Each Spotify call is raced against the time
+ * remaining, so a hung request ends the attempt instead of waiting forever.
+ */
 const LOAD_BUDGET_MS = 20000;
 
-const EXCLUSION_FILTERS = new Set(["all", "excluded", "not_excluded"] as const);
-const PLAYLIST_SORTS = new Set(["library", "name", "name-desc", "tracks", "tracks-desc", "recent"] as const);
-const TRACK_SORTS = new Set(["name", "name-desc", "artist", "album", "recent"] as const);
-const PLAYLIST_DISPLAYS = new Set(["list", "compact"] as const);
-const TABS = new Set(["playlists", "tracks"] as const);
-
-type TabId = "playlists" | "tracks";
 const TAB_ORDER: TabId[] = ["playlists", "tracks"];
-type ExclusionFilter = "all" | "excluded" | "not_excluded";
-type PlaylistSort = "library" | "name" | "name-desc" | "tracks" | "tracks-desc" | "recent";
-type TrackSort = "name" | "name-desc" | "artist" | "album" | "recent";
-type PlaylistDisplay = "list" | "compact";
 type Status = "loading" | "ready" | "error";
-
-type PlaylistRow = {
-  kind: "playlist";
-  uri: string;
-  name: string;
-  owner: string;
-  folder: string;
-  tracks: number | null;
-  image: string;
-  libraryIndex: number;
-};
-
-type TrackRow = {
-  kind: "track";
-  uri: string;
-  name: string;
-  artists: string;
-  album: string;
-  image: string;
-  durationMs: number | null;
-  unavailable: boolean;
-};
-
-type DisplayPlaylist = PlaylistRow & {
-  excluded: boolean;
-  excludedAt: number;
-};
-
-type DisplayTrack = TrackRow & {
-  excluded: boolean;
-  excludedAt: number;
-};
 
 type UndoState = {
   uris: string[];
@@ -74,364 +78,30 @@ type CollectionAPI = {
   subscribe?: (name: string, cb: (items: unknown) => void) => (() => void) | void;
 };
 
-type SavedView = {
-  tab: TabId;
-  exclusionFilter: ExclusionFilter;
-  playlistSort: PlaylistSort;
-  trackSort: TrackSort;
-  playlistDisplay: PlaylistDisplay;
-  playlistQuery: string;
-  trackQuery: string;
+type LoadOutcome = {
+  apis: TasteApis | null;
+  error: string;
 };
-
-function coverSrc(images: Array<{ url?: string } | null | undefined> | undefined): string {
-  const raw = images?.find((image) => image?.url)?.url || "";
-  if (!raw) return "";
-  if (!raw.startsWith("spotify:")) return raw;
-
-  const [, kind, ...rest] = raw.split(":");
-  if (kind === "image") return `https://i.scdn.co/image/${rest[0]}`;
-  if (kind === "mosaic") return `https://mosaic.scdn.co/300/${rest.join("")}`;
-  return "";
-}
-
-function formatDate(seconds: number): string {
-  const value = Number(seconds);
-  if (!value) return "";
-  return new Date(value * 1000).toLocaleDateString("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatDuration(ms: number | null): string {
-  if (!Number.isFinite(ms as number) || (ms as number) <= 0) return "—";
-  const total = Math.floor((ms as number) / 1000);
-  const minutes = Math.floor(total / 60);
-  const seconds = total % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
-
-function formatRelative(timestamp: number | null, now = Date.now()): string {
-  if (!timestamp) return "";
-  const delta = Math.max(0, now - timestamp);
-  const minutes = Math.floor(delta / 60000);
-  if (minutes < 1) return "Updated just now";
-  if (minutes === 1) return "Last updated 1 minute ago";
-  if (minutes < 60) return `Last updated ${minutes} minutes ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours === 1) return "Last updated 1 hour ago";
-  if (hours < 24) return `Last updated ${hours} hours ago`;
-  return `Last updated ${formatDate(Math.floor(timestamp / 1000))}`;
-}
-
-function trackCountLabel(count: number | null): string {
-  if (!Number.isFinite(count as number)) return "—";
-  return Number(count).toLocaleString("en");
-}
-
-function playlistCount(count: number): string {
-  return count === 1 ? "1 playlist" : `${count} playlists`;
-}
-
-function trackCount(count: number): string {
-  return count === 1 ? "1 track" : `${count} tracks`;
-}
-
-function itemCountLabel(uris: string[]): string {
-  const playlists = uris.filter((uri) => uri.startsWith("spotify:playlist:")).length;
-  const tracks = uris.filter((uri) => uri.startsWith("spotify:track:")).length;
-  if (playlists && tracks) return `${uris.length} items`;
-  if (tracks) return trackCount(tracks);
-  return playlistCount(playlists || uris.length);
-}
-
-function isPlaylistUri(uri: string): boolean {
-  return uri.startsWith("spotify:playlist:");
-}
-
-function isTrackUri(uri: string): boolean {
-  return uri.startsWith("spotify:track:");
-}
-
-function ownerLabel(owner: string): string {
-  if (!owner) return "";
-  if (owner === "You") return "Created by you";
-  return owner;
-}
-
-function excludedMap(items: unknown): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const item of (items as Array<string | { uri?: string; addTime?: number }> | undefined) || []) {
-    const uri = typeof item === "string" ? item : item?.uri;
-    if (!uri || (!isPlaylistUri(uri) && !isTrackUri(uri))) continue;
-    const added = Number(typeof item === "string" ? 0 : item?.addTime || 0);
-    map.set(uri, Number.isFinite(added) ? added : 0);
-  }
-  return map;
-}
-
-type LibraryNode = {
-  items?: Array<{
-    type?: string;
-    name?: string;
-    uri?: string;
-    isOwnedBySelf?: boolean;
-    owner?: { displayName?: string };
-    totalLength?: number;
-    images?: Array<{ url?: string }>;
-  }>;
-};
-
-function flattenLibrary(
-  node: LibraryNode | undefined,
-  folder: string[] = [],
-  counter = { next: 0 }
-): PlaylistRow[] {
-  const rows: PlaylistRow[] = [];
-  for (const item of node?.items || []) {
-    if (item?.type === "folder") {
-      const nextFolder = item.name ? [...folder, item.name] : folder;
-      rows.push(...flattenLibrary(item as LibraryNode, nextFolder, counter));
-      continue;
-    }
-    if (item?.type !== "playlist" || !item.uri) continue;
-    rows.push({
-      kind: "playlist",
-      uri: item.uri,
-      name: item.name || "Untitled playlist",
-      owner: item.isOwnedBySelf ? "You" : item.owner?.displayName || "",
-      folder: folder.join(" / "),
-      tracks: Number.isFinite(item.totalLength) ? (item.totalLength as number) : null,
-      image: coverSrc(item.images),
-      libraryIndex: counter.next++,
-    });
-  }
-  return rows;
-}
-
-function uniquePlaylists(rows: PlaylistRow[]): PlaylistRow[] {
-  const seen = new Set<string>();
-  return rows.filter((row) => {
-    if (seen.has(row.uri)) return false;
-    seen.add(row.uri);
-    return true;
-  });
-}
-
-function uniqueTracks(rows: TrackRow[]): TrackRow[] {
-  const seen = new Set<string>();
-  return rows.filter((row) => {
-    if (seen.has(row.uri)) return false;
-    seen.add(row.uri);
-    return true;
-  });
-}
-
-function compareName(a: { name: string }, b: { name: string }): number {
-  return a.name.localeCompare(b.name, "en", { sensitivity: "base" });
-}
-
-function comparePlaylistSort(a: DisplayPlaylist, b: DisplayPlaylist, sort: PlaylistSort): number {
-  if (sort === "recent") {
-    const byDate = (b.excludedAt || 0) - (a.excludedAt || 0);
-    if (byDate) return byDate;
-    return compareName(a, b);
-  }
-  if (sort === "library") {
-    const byIndex = a.libraryIndex - b.libraryIndex;
-    if (byIndex) return byIndex;
-    return compareName(a, b);
-  }
-  if (sort === "tracks" || sort === "tracks-desc") {
-    const left = a.tracks ?? -1;
-    const right = b.tracks ?? -1;
-    const byTracks = sort === "tracks" ? left - right : right - left;
-    if (byTracks) return byTracks;
-    return compareName(a, b);
-  }
-  if (sort === "name-desc") return compareName(b, a);
-  return compareName(a, b);
-}
-
-function compareTrackSort(a: DisplayTrack, b: DisplayTrack, sort: TrackSort): number {
-  if (sort === "recent") {
-    const byDate = (b.excludedAt || 0) - (a.excludedAt || 0);
-    if (byDate) return byDate;
-    return compareName(a, b);
-  }
-  if (sort === "artist") {
-    const byArtist = a.artists.localeCompare(b.artists, "en", { sensitivity: "base" });
-    if (byArtist) return byArtist;
-    return compareName(a, b);
-  }
-  if (sort === "album") {
-    const byAlbum = a.album.localeCompare(b.album, "en", { sensitivity: "base" });
-    if (byAlbum) return byAlbum;
-    return compareName(a, b);
-  }
-  if (sort === "name-desc") return compareName(b, a);
-  return compareName(a, b);
-}
-
-type DecoratedTrack = {
-  uri?: string;
-  name?: string;
-  duration?: { totalMilliseconds?: number } | number;
-  artists?: { items?: Array<{ profile?: { name?: string } }> };
-  albumOfTrack?: {
-    name?: string;
-    coverArt?: { sources?: Array<{ url?: string; width?: number }> };
-  };
-};
-
-function unavailableTrack(uri: string): TrackRow {
-  return {
-    kind: "track",
-    uri,
-    name: "Track unavailable",
-    artists: "",
-    album: "",
-    image: "",
-    durationMs: null,
-    unavailable: true,
-  };
-}
-
-function trackDurationMs(track: DecoratedTrack | null | undefined): number | null {
-  const duration = track?.duration;
-  if (typeof duration === "number" && Number.isFinite(duration)) return duration;
-  const total = duration && typeof duration === "object" ? duration.totalMilliseconds : null;
-  return Number.isFinite(total as number) ? (total as number) : null;
-}
-
-function trackFromDecorated(uri: string, track: DecoratedTrack | null | undefined): TrackRow {
-  if (!track?.name) return unavailableTrack(uri);
-  const artists = (track.artists?.items || [])
-    .map((artist) => artist?.profile?.name)
-    .filter(Boolean)
-    .join(", ");
-  const sources = track.albumOfTrack?.coverArt?.sources || [];
-  const image =
-    sources.find((source) => (source.width || 0) >= 300 && source.url)?.url ||
-    [...sources].sort((a, b) => (b.width || 0) - (a.width || 0))[0]?.url ||
-    "";
-  return {
-    kind: "track",
-    uri,
-    name: track.name,
-    artists,
-    album: track.albumOfTrack?.name || "",
-    image,
-    durationMs: trackDurationMs(track),
-    unavailable: false,
-  };
-}
-
-async function loadExcludedTracks(uris: string[]): Promise<TrackRow[]> {
-  const unique = [...new Set(uris)];
-  if (!unique.length) return [];
-
-  const defs = Spicetify.GraphQL?.Definitions as { decorateContextTracks?: unknown } | undefined;
-  const request = Spicetify.GraphQL?.Request;
-  if (!defs?.decorateContextTracks || typeof request !== "function") {
-    return unique.map(unavailableTrack);
-  }
-
-  const byUri = new Map<string, TrackRow>();
-  const chunkSize = 50;
-  for (let offset = 0; offset < unique.length; offset += chunkSize) {
-    const chunk = unique.slice(offset, offset + chunkSize);
-    try {
-      const response = (await request(defs.decorateContextTracks, { uris: chunk })) as {
-        data?: { tracks?: Array<DecoratedTrack | null> };
-      };
-      const tracks = response?.data?.tracks || [];
-      for (let index = 0; index < chunk.length; index += 1) {
-        const uri = chunk[index];
-        const match = tracks.find((track) => track?.uri === uri) || tracks[index];
-        byUri.set(uri, trackFromDecorated(uri, match));
-      }
-    } catch {
-      for (const uri of chunk) byUri.set(uri, unavailableTrack(uri));
-    }
-  }
-
-  return unique.map((uri) => byUri.get(uri) || unavailableTrack(uri));
-}
-
-function matchesPlaylistQuery(row: PlaylistRow, query: string): boolean {
-  if (!query) return true;
-  const haystack = `${row.name} ${row.owner} ${row.folder}`.toLocaleLowerCase("en");
-  return haystack.includes(query);
-}
-
-function matchesTrackQuery(row: TrackRow, query: string): boolean {
-  if (!query) return true;
-  const haystack = `${row.name} ${row.artists} ${row.album}`.toLocaleLowerCase("en");
-  return haystack.includes(query);
-}
-
-function migrateLegacyView(raw: Record<string, unknown>): Partial<SavedView> {
-  const legacyFilter = typeof raw.filter === "string" ? raw.filter : "";
-  const legacySort = typeof raw.sort === "string" ? raw.sort : "";
-  const legacyQuery = typeof raw.query === "string" ? raw.query : "";
-  const next: Partial<SavedView> = {};
-
-  if (legacyFilter === "excluded") next.exclusionFilter = "excluded";
-  else if (legacyFilter === "included") next.exclusionFilter = "not_excluded";
-  else if (legacyFilter === "outside" || legacyFilter === "unknown") next.exclusionFilter = "all";
-
-  if (legacySort === "recent") next.playlistSort = "recent";
-  else if (legacySort === "library") next.playlistSort = "library";
-  else if (legacySort === "name") next.playlistSort = "name";
-
-  if (legacyQuery) {
-    next.playlistQuery = legacyQuery;
-    next.trackQuery = legacyQuery;
-  }
-  return next;
-}
 
 function readView(): SavedView {
-  const defaults: SavedView = {
-    tab: "playlists",
-    exclusionFilter: "all",
-    playlistSort: "library",
-    trackSort: "name",
-    playlistDisplay: "list",
-    playlistQuery: "",
-    trackQuery: "",
-  };
   try {
-    const storage = Spicetify.LocalStorage;
+    const storage = getSpicetify().LocalStorage;
     const raw = storage?.get?.(VIEW_KEY) || localStorage.getItem(VIEW_KEY);
-    const parsed = JSON.parse(raw || "{}") as Record<string, unknown>;
-    const migrated = migrateLegacyView(parsed);
-    const merged = { ...defaults, ...migrated, ...parsed } as SavedView;
-    return {
-      tab: TABS.has(merged.tab) ? merged.tab : defaults.tab,
-      exclusionFilter: EXCLUSION_FILTERS.has(merged.exclusionFilter)
-        ? merged.exclusionFilter
-        : defaults.exclusionFilter,
-      playlistSort: PLAYLIST_SORTS.has(merged.playlistSort) ? merged.playlistSort : defaults.playlistSort,
-      trackSort: TRACK_SORTS.has(merged.trackSort) ? merged.trackSort : defaults.trackSort,
-      playlistDisplay: PLAYLIST_DISPLAYS.has(merged.playlistDisplay)
-        ? merged.playlistDisplay
-        : defaults.playlistDisplay,
-      playlistQuery: typeof merged.playlistQuery === "string" ? merged.playlistQuery : "",
-      trackQuery: typeof merged.trackQuery === "string" ? merged.trackQuery : "",
-    };
+    return parseSavedView(raw);
   } catch {
-    return defaults;
+    return parseSavedView(null);
   }
 }
 
 function writeView(view: SavedView) {
-  const payload = JSON.stringify(view);
-  if (Spicetify.LocalStorage?.set) Spicetify.LocalStorage.set(VIEW_KEY, payload);
-  else localStorage.setItem(VIEW_KEY, payload);
+  try {
+    const payload = JSON.stringify(view);
+    const storage = getSpicetify().LocalStorage;
+    if (storage?.set) storage.set(VIEW_KEY, payload);
+    else localStorage.setItem(VIEW_KEY, payload);
+  } catch {
+    // A saved view is a convenience. Storage failure should not break the page.
+  }
 }
 
 function openPlaylist(uri: string) {
@@ -491,6 +161,36 @@ function getTasteApis(): TasteApis | null {
   return { collection, rootlist };
 }
 
+async function loadExcludedTracks(uris: string[]): Promise<TrackRow[]> {
+  const unique = [...new Set(uris)];
+  if (!unique.length) return [];
+
+  const spice = getSpicetify();
+  const defs = spice.GraphQL?.Definitions as { decorateContextTracks?: unknown } | undefined;
+  const request = spice.GraphQL?.Request;
+  if (!defs?.decorateContextTracks || typeof request !== "function") {
+    return unique.map(failedTrack);
+  }
+
+  const byUri = new Map<string, TrackRow>();
+  const chunkSize = 50;
+  for (let offset = 0; offset < unique.length; offset += chunkSize) {
+    const chunk = unique.slice(offset, offset + chunkSize);
+    try {
+      const response = (await request(defs.decorateContextTracks, { uris: chunk })) as {
+        data?: { tracks?: Array<DecoratedTrack | null> };
+      };
+      for (const row of resolveDecoratedChunk(chunk, response?.data?.tracks || [])) {
+        byUri.set(row.uri, row);
+      }
+    } catch {
+      for (const uri of chunk) byUri.set(uri, failedTrack(uri));
+    }
+  }
+
+  return unique.map((uri) => byUri.get(uri) || failedTrack(uri));
+}
+
 export default function App() {
   const [library, setLibrary] = useState<PlaylistRow[]>([]);
   const [tracks, setTracks] = useState<TrackRow[]>([]);
@@ -500,7 +200,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [progress, setProgress] = useState<ProgressState>({ value: 0, label: "Starting…" });
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [refreshError, setRefreshError] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const savedView = useMemo(() => readView(), []);
   const [tab, setTab] = useState<TabId>(savedView.tab);
@@ -530,16 +230,12 @@ export default function App() {
       playlistSort,
       trackSort,
       playlistDisplay,
+      trackFilter: exclusionFilter,
+      trackDisplay: playlistDisplay,
       playlistQuery,
       trackQuery,
     });
   }, [tab, exclusionFilter, playlistSort, trackSort, playlistDisplay, playlistQuery, trackQuery]);
-
-  useEffect(() => {
-    if (!lastUpdatedAt) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 30000);
-    return () => window.clearInterval(timer);
-  }, [lastUpdatedAt]);
 
   useEffect(() => {
     if (!openMenuUri) return;
@@ -588,7 +284,6 @@ export default function App() {
       excludedRef.current = map;
       setExcluded(map);
       setLastUpdatedAt(Date.now());
-      setNow(Date.now());
       reportProgress(1, "Taste profile loaded");
       return map;
     },
@@ -598,24 +293,34 @@ export default function App() {
   /**
    * Keep trying until Spotify answers or LOAD_BUDGET_MS elapses. Methods can
    * exist before they work, so we probe with real get()/getContents() calls.
+   * Each call is bounded by the time still left, including a request that
+   * never settles.
    *
    * `signal.cancelled` only skips applying results — it must not surface as a
    * hard UI error (Spicetify remounts the page during navigation; Refresh works
-   * because it never uses a cancellation flag). Budget exhaustion returns null
-   * so callers can show a recoverable error with Refresh enabled.
+   * because it never uses a cancellation flag).
    */
   const loadWithRetry = useCallback(
-    async (signal?: { cancelled: boolean }): Promise<TasteApis | null> => {
+    async (signal?: { cancelled: boolean }): Promise<LoadOutcome> => {
       let attempt = 0;
+      let lastError = "";
       const started = Date.now();
+      const budgetLeft = () => LOAD_BUDGET_MS - (Date.now() - started);
+      const timedOut = (): LoadOutcome => ({
+        apis: null,
+        error: lastError || "Spotify took too long to respond",
+      });
+
       while (!signal?.cancelled) {
-        if (Date.now() - started >= LOAD_BUDGET_MS) return null;
+        if (budgetLeft() <= 0) return timedOut();
 
         attempt += 1;
         const apis = getTasteApis();
         if (!apis) {
           if (!signal?.cancelled) reportProgress(0.05, "Waiting for Spotify");
-          await delay(300);
+          const wait = Math.min(300, budgetLeft());
+          if (wait <= 0) return timedOut();
+          await delay(wait);
           continue;
         }
 
@@ -626,10 +331,10 @@ export default function App() {
           }
 
           // Fetch separately so one cold API doesn't fail the whole attempt.
-          const ignored = await apis.collection.get(SET_NAME);
-          if (signal?.cancelled) return null;
-          const contents = await apis.rootlist.getContents();
-          if (signal?.cancelled) return null;
+          const ignored = await withDeadline(apis.collection.get(SET_NAME), budgetLeft());
+          if (signal?.cancelled) return { apis: null, error: "" };
+          const contents = await withDeadline(apis.rootlist.getContents(), budgetLeft());
+          if (signal?.cancelled) return { apis: null, error: "" };
 
           const map = excludedMap(ignored);
           const trackUris = [...map.keys()].filter(isTrackUri);
@@ -639,26 +344,22 @@ export default function App() {
               trackUris.length ? "Loading exclusions" : "Taste profile loaded"
             );
           }
-          const loadedTracks = trackUris.length ? await loadExcludedTracks(trackUris) : [];
-          if (signal?.cancelled) return null;
+          const loadedTracks = trackUris.length ? await withDeadline(loadExcludedTracks(trackUris), budgetLeft()) : [];
+          if (signal?.cancelled) return { apis: null, error: "" };
 
           applyLoadedData(ignored, contents, loadedTracks);
-          return apis;
+          return { apis, error: "" };
         } catch (loadError) {
-          if (signal?.cancelled) return null;
-          const detail =
-            loadError instanceof Error
-              ? loadError.message
-              : typeof loadError === "string"
-                ? loadError
-                : "Spotify rejected the request";
-          reportProgress(0.08, `Waiting for Spotify (${detail.slice(0, 80)})`);
-          const remaining = LOAD_BUDGET_MS - (Date.now() - started);
-          if (remaining <= 0) return null;
-          await delay(Math.min(remaining, Math.min(2000, 400 + attempt * 150)));
+          if (signal?.cancelled) return { apis: null, error: "" };
+          lastError = errorDetail(loadError);
+          reportProgress(0.08, `Waiting for Spotify (${lastError.slice(0, 80)})`);
+          if (loadError instanceof DeadlineError || budgetLeft() <= 0) return { apis: null, error: lastError };
+          const wait = Math.min(budgetLeft(), Math.min(2000, 400 + attempt * 150));
+          if (wait <= 0) return { apis: null, error: lastError };
+          await delay(wait);
         }
       }
-      return null;
+      return { apis: null, error: "" };
     },
     [applyLoadedData, reportProgress]
   );
@@ -680,16 +381,18 @@ export default function App() {
 
     const boot = window.setTimeout(() => {
       void (async () => {
-        const apis = await loadWithRetryRef.current(signal);
+        const result = await loadWithRetryRef.current(signal);
         if (signal.cancelled) return;
-        if (!apis) {
-          setError("Taste profile could not be loaded. Check that Spotify is ready, then tap Refresh.");
+        if (!result.apis) {
+          setRefreshError("");
+          setError(loadFailureCopy("load", result.error));
           setStatus("error");
           return;
         }
         setError("");
+        setRefreshError("");
         setStatus("ready");
-        const subscribe = apis.collection.subscribe;
+        const subscribe = result.apis.collection.subscribe;
         if (typeof subscribe !== "function") return;
         const stop = subscribe(SET_NAME, (items) => {
           if (applying.current) return;
@@ -711,8 +414,12 @@ export default function App() {
 
   async function applyExclusion(uris: string[], shouldExclude: boolean) {
     const unique = [...new Set(uris)];
-    if (!unique.length || applying.current) return;
+    if (!unique.length) return;
     const spice = getSpicetify();
+    if (applying.current) {
+      spice.showNotification?.("Wait until the current update finishes.");
+      return;
+    }
     const api = spice.Platform?.CollectionPlatformAPI as CollectionAPI | undefined;
     if (!api || typeof api.add !== "function" || typeof api.remove !== "function") {
       spice.showNotification?.(
@@ -721,20 +428,13 @@ export default function App() {
       );
       return;
     }
-    const previous = new Map<string, number | null>();
-    for (const uri of unique) {
-      previous.set(uri, excludedRef.current.has(uri) ? (excludedRef.current.get(uri) as number) : null);
-    }
+    const previous = snapshotExcluded(excludedRef.current, unique);
+    const stamp = Math.floor(Date.now() / 1000);
 
     applying.current = true;
     setPendingUris(new Set(unique));
     setExcluded((current) => {
-      const next = new Map(current);
-      const stamp = Math.floor(Date.now() / 1000);
-      for (const uri of unique) {
-        if (shouldExclude) next.set(uri, current.get(uri) || stamp);
-        else next.delete(uri);
-      }
+      const next = stampExcluded(current, unique, shouldExclude, stamp);
       excludedRef.current = next;
       return next;
     });
@@ -756,11 +456,7 @@ export default function App() {
       );
     } catch {
       setExcluded((current) => {
-        const next = new Map(current);
-        for (const [uri, value] of previous) {
-          if (value === null) next.delete(uri);
-          else next.set(uri, value);
-        }
+        const next = restoreExcluded(current, previous);
         excludedRef.current = next;
         return next;
       });
@@ -783,29 +479,14 @@ export default function App() {
       return;
     }
     const snapshot = undo;
-    const toExclude: string[] = [];
-    const toRemove: string[] = [];
-    for (const uri of snapshot.uris) {
-      const value = snapshot.previous.get(uri);
-      if (value === null || value === undefined) toRemove.push(uri);
-      else toExclude.push(uri);
-    }
-
-    const beforeUndo = new Map<string, number | null>();
-    for (const uri of snapshot.uris) {
-      beforeUndo.set(uri, excludedRef.current.has(uri) ? (excludedRef.current.get(uri) as number) : null);
-    }
+    const { add: toExclude, remove: toRemove } = undoWrites(snapshot.previous);
+    const beforeUndo = snapshotExcluded(excludedRef.current, snapshot.uris);
 
     applying.current = true;
     setUndo(null);
     setPendingUris(new Set(snapshot.uris));
     setExcluded((current) => {
-      const next = new Map(current);
-      for (const uri of snapshot.uris) {
-        const value = snapshot.previous.get(uri);
-        if (value === null || value === undefined) next.delete(uri);
-        else next.set(uri, value);
-      }
+      const next = restoreExcluded(current, snapshot.previous);
       excludedRef.current = next;
       return next;
     });
@@ -816,11 +497,7 @@ export default function App() {
       spice.showNotification("Change undone.");
     } catch {
       setExcluded((current) => {
-        const next = new Map(current);
-        for (const [uri, value] of beforeUndo) {
-          if (value === null) next.delete(uri);
-          else next.set(uri, value);
-        }
+        const next = restoreExcluded(current, beforeUndo);
         excludedRef.current = next;
         return next;
       });
@@ -871,24 +548,32 @@ export default function App() {
     if (status === "loading" || reloading) return;
     const keepList = status === "ready";
     setError("");
+    setRefreshError("");
     setProgress({ value: 0, label: "Loading taste profile" });
     if (keepList) setReloading(true);
     else setStatus("loading");
     loadWithRetry()
-      .then((apis) => {
-        if (!apis) {
-          setError("Taste profile could not be loaded.");
-          setStatus("error");
+      .then((result) => {
+        if (!result.apis) {
+          const message = loadFailureCopy(keepList ? "refresh" : "load", result.error);
+          if (keepList) setRefreshError(message);
+          else setError(message);
+          if (!keepList) setStatus("error");
           setReloading(false);
           return;
         }
+        setRefreshError("");
+        setError("");
         setStatus("ready");
         setReloading(false);
       })
       .catch((loadError) => {
-        const detail = loadError instanceof Error ? loadError.message : "";
-        setError(detail ? `Taste profile could not be loaded. (${detail})` : "Taste profile could not be loaded.");
-        setStatus("error");
+        const message = loadFailureCopy(keepList ? "refresh" : "load", errorDetail(loadError));
+        if (keepList) setRefreshError(message);
+        else {
+          setError(message);
+          setStatus("error");
+        }
         setReloading(false);
       });
   }
@@ -914,18 +599,16 @@ export default function App() {
   }, [library, excluded]);
 
   const trackRows = useMemo((): DisplayTrack[] => {
-    return uniqueTracks(tracks)
-      .map((row) => ({
-        ...row,
-        excluded: excluded.has(row.uri),
-        excludedAt: excluded.get(row.uri) || 0,
-      }))
-      .filter((row) => row.excluded);
+    return uniqueTracks(tracks).map((row) => ({
+      ...row,
+      excluded: excluded.has(row.uri),
+      excludedAt: excluded.get(row.uri) || 0,
+    }));
   }, [tracks, excluded]);
 
   const excludedPlaylistCount = playlistRows.filter((row) => row.excluded).length;
   const notExcludedCount = playlistRows.filter((row) => !row.excluded).length;
-  const excludedTrackCount = trackRows.length;
+  const excludedTrackCount = trackRows.filter((row) => row.excluded).length;
 
   const visiblePlaylists = playlistRows
     .filter((row) => {
@@ -936,13 +619,20 @@ export default function App() {
     .sort((a, b) => comparePlaylistSort(a, b, playlistSort));
 
   const visibleTracks = trackRows
-    .filter((row) => matchesTrackQuery(row, trackNeedle))
+    .filter((row) => {
+      if (exclusionFilter === "excluded" && !row.excluded) return false;
+      if (exclusionFilter === "not_excluded" && row.excluded) return false;
+      return matchesTrackQuery(row, trackNeedle);
+    })
     .sort((a, b) => compareTrackSort(a, b, trackSort));
 
   const visibleUris = (tab === "playlists" ? visiblePlaylists : visibleTracks).map((row) => row.uri);
   const selectedVisible = visibleUris.filter((uri) => selected.has(uri));
   const selectedExcluded = selectedVisible.filter((uri) => excluded.has(uri));
-  const selectedNotExcluded = selectedVisible.filter((uri) => !excluded.has(uri) && isPlaylistUri(uri));
+  const selectedNotExcluded = selectedVisible.filter((uri) => {
+    if (excluded.has(uri)) return false;
+    return tab === "tracks" ? isTrackUri(uri) : isPlaylistUri(uri);
+  });
   const allSelected = visibleUris.length > 0 && selectedVisible.length === visibleUris.length;
   const partiallySelected = selectedVisible.length > 0 && !allSelected;
   const busy = pendingUris.size > 0;
@@ -950,15 +640,26 @@ export default function App() {
 
   let playlistEmptyTitle = "No playlists match";
   let playlistEmptyBody = "Try another search or filter.";
-  if (!playlistNeedle && exclusionFilter === "excluded") {
+  if (!playlistNeedle && playlistRows.length === 0) {
+    playlistEmptyTitle = "No playlists available";
+    playlistEmptyBody = "Your Spotify library could not provide playlists yet.";
+  } else if (!playlistNeedle && exclusionFilter === "excluded") {
     playlistEmptyTitle = "No excluded playlists";
     playlistEmptyBody = "None of your playlists are currently excluded from your taste profile.";
   } else if (!playlistNeedle && exclusionFilter === "not_excluded") {
     playlistEmptyTitle = "No matching playlists";
     playlistEmptyBody = "Every playlist in this view is already excluded.";
-  } else if (!playlistNeedle && !playlistRows.length) {
-    playlistEmptyTitle = "No playlists available";
-    playlistEmptyBody = "Your Spotify library could not provide playlists yet.";
+  }
+
+  let trackEmptyTitle = "No matching tracks";
+  let trackEmptyBody = "Try another search or filter.";
+  if (!trackNeedle && exclusionFilter === "not_excluded") {
+    trackEmptyTitle = "No tracks in this filter";
+    trackEmptyBody =
+      "Spotify only returns tracks you've excluded. After you remove an exclusion, that track stays under Not excluded until you refresh.";
+  } else if (!trackNeedle && !trackRows.some((row) => (exclusionFilter === "all" ? true : row.excluded))) {
+    trackEmptyTitle = "No excluded tracks";
+    trackEmptyBody = "You don't currently have any individually excluded tracks from your taste profile.";
   }
 
   return (
@@ -1000,11 +701,7 @@ export default function App() {
               <span>Refresh</span>
             </button>
           </div>
-          {lastUpdatedAt ? (
-            <p className="taste__updated" aria-live="polite">
-              {formatRelative(lastUpdatedAt, now)}
-            </p>
-          ) : null}
+          {lastUpdatedAt ? <LastUpdated at={lastUpdatedAt} /> : null}
         </div>
       </header>
 
@@ -1027,8 +724,8 @@ export default function App() {
             </a>
           </p>
           <p>
-            Manage exclusions individually or in bulk, search and filter results, and switch between standard and
-            compact playlist views — without digging through each playlist or track menu. Excluding a playlist only
+            Manage exclusions individually or in bulk. Switch the list between Playlists and Tracks; the filter,
+            search, and Compact or List view stay on the page. Excluding a playlist only
             affects listens from that playlist; excluding a track affects that song everywhere. Removing a playlist
             exclusion does not remove separately excluded tracks.
           </p>
@@ -1064,7 +761,7 @@ export default function App() {
           tabIndex={tab === "tracks" ? 0 : -1}
           onClick={() => chooseTab("tracks")}
         >
-          <span>Excluded Tracks</span>
+          <span>Tracks</span>
           <span className="taste__tab-count">{status === "ready" ? excludedTrackCount : "–"}</span>
         </button>
       </div>
@@ -1080,43 +777,27 @@ export default function App() {
         </div>
       ) : null}
 
-      {status === "ready" && tab === "playlists" ? (
+      {status === "ready" && refreshError ? (
+        <div className="taste__status taste__status--error">
+          <p role="alert">{refreshError}</p>
+        </div>
+      ) : null}
+
+      {status === "ready" ? (
         <div
           role="tabpanel"
-          id="taste-panel-playlists"
-          aria-labelledby="taste-tab-playlists"
+          id={tab === "playlists" ? "taste-panel-playlists" : "taste-panel-tracks"}
+          aria-labelledby={tab === "playlists" ? "taste-tab-playlists" : "taste-tab-tracks"}
         >
-          <div className="taste__section-head">
-            <div>
-              <h2>Playlists</h2>
-              <p className="taste__section-copy">
-                View and manage taste-profile exclusions across your playlists from one interface.
-              </p>
-            </div>
-          </div>
-
-          <div className="taste__summary" aria-label="Playlist summary">
-            <SummaryCard
-              tone="warn"
-              icon={<MinusIcon />}
-              value={excludedPlaylistCount}
-              label="Playlists excluded"
-            />
-            <SummaryCard
-              tone="ok"
-              icon={<CheckIcon />}
-              value={notExcludedCount}
-              label="Not excluded"
-            />
+          <div className="taste__summary" aria-label="Taste profile summary">
+            <SummaryCard tone="warn" icon={<MinusIcon />} value={excludedPlaylistCount} label="Playlists excluded" />
+            <SummaryCard tone="ok" icon={<CheckIcon />} value={notExcludedCount} label="Playlists not excluded" />
+            <SummaryCard tone="warn" icon={<MinusIcon />} value={excludedTrackCount} label="Tracks excluded" />
           </div>
 
           <div className="taste__toolbar">
             <div className="taste__filters" role="group" aria-label="Exclusion filter">
-              <Chip
-                label="All"
-                pressed={exclusionFilter === "all"}
-                onClick={() => chooseExclusionFilter("all")}
-              />
+              <Chip label="All" pressed={exclusionFilter === "all"} onClick={() => chooseExclusionFilter("all")} />
               <Chip
                 label="Excluded"
                 pressed={exclusionFilter === "excluded"}
@@ -1129,32 +810,50 @@ export default function App() {
               />
             </div>
             <SearchField
-              value={playlistQuery}
-              placeholder="Search playlists..."
-              label="Search playlists"
+              value={tab === "playlists" ? playlistQuery : trackQuery}
+              placeholder={tab === "playlists" ? "Search playlists..." : "Search tracks, artists, or albums..."}
+              label={tab === "playlists" ? "Search playlists" : "Search tracks, artists, or albums"}
               onChange={(value) => {
-                setPlaylistQuery(value);
+                if (tab === "playlists") setPlaylistQuery(value);
+                else setTrackQuery(value);
                 setSelected(new Set());
               }}
             />
             <div className="taste__toolbar-end">
               <label className="taste__select-wrap">
                 <span>Sort:</span>
-                <select
-                  value={playlistSort}
-                  aria-label="Sort playlists"
-                  onChange={(event) => {
-                    setPlaylistSort(event.target.value as PlaylistSort);
-                    setSelected(new Set());
-                  }}
-                >
-                  <option value="library">Custom</option>
-                  <option value="name">Name A–Z</option>
-                  <option value="name-desc">Name Z–A</option>
-                  <option value="tracks">Tracks ↑</option>
-                  <option value="tracks-desc">Tracks ↓</option>
-                  <option value="recent">Recently excluded</option>
-                </select>
+                {tab === "playlists" ? (
+                  <select
+                    value={playlistSort}
+                    aria-label="Sort playlists"
+                    onChange={(event) => {
+                      setPlaylistSort(event.target.value as PlaylistSort);
+                      setSelected(new Set());
+                    }}
+                  >
+                    <option value="library">Custom</option>
+                    <option value="name">Name A–Z</option>
+                    <option value="name-desc">Name Z–A</option>
+                    <option value="tracks">Tracks ↑</option>
+                    <option value="tracks-desc">Tracks ↓</option>
+                    <option value="recent">Recently excluded</option>
+                  </select>
+                ) : (
+                  <select
+                    value={trackSort}
+                    aria-label="Sort tracks"
+                    onChange={(event) => {
+                      setTrackSort(event.target.value as TrackSort);
+                      setSelected(new Set());
+                    }}
+                  >
+                    <option value="name">Name A–Z</option>
+                    <option value="name-desc">Name Z–A</option>
+                    <option value="artist">Artist</option>
+                    <option value="album">Album</option>
+                    <option value="recent">Recently excluded</option>
+                  </select>
+                )}
               </label>
               <ViewAsControl value={playlistDisplay} onChange={setPlaylistDisplay} />
             </div>
@@ -1162,15 +861,27 @@ export default function App() {
 
           {selectedVisible.length ? (
             <BulkBar
-              label={`${selectedVisible.length} ${selectedVisible.length === 1 ? "playlist" : "playlists"} selected`}
+              label={`${selectedVisible.length} ${
+                tab === "playlists"
+                  ? selectedVisible.length === 1
+                    ? "playlist"
+                    : "playlists"
+                  : selectedVisible.length === 1
+                    ? "track"
+                    : "tracks"
+              } selected`}
               busy={busy}
               primaryLabel={selectedNotExcluded.length ? "Exclude selected" : undefined}
               onPrimary={
                 selectedNotExcluded.length
                   ? () => {
+                      const noun =
+                        tab === "playlists"
+                          ? playlistCount(selectedNotExcluded.length)
+                          : trackCount(selectedNotExcluded.length);
                       if (
                         selectedNotExcluded.length >= MASS_CONFIRM_MIN &&
-                        !window.confirm(`Exclude ${playlistCount(selectedNotExcluded.length)} from your taste profile?`)
+                        !window.confirm(`Exclude ${noun} from your taste profile?`)
                       ) {
                         return;
                       }
@@ -1184,9 +895,7 @@ export default function App() {
                   ? () => {
                       if (
                         selectedExcluded.length >= MASS_CONFIRM_MIN &&
-                        !window.confirm(
-                          `Remove exclusion for ${itemCountLabel(selectedExcluded)} from your taste profile?`
-                        )
+                        !window.confirm(`Remove exclusion for ${itemCountLabel(selectedExcluded)}?`)
                       ) {
                         return;
                       }
@@ -1198,7 +907,7 @@ export default function App() {
             />
           ) : null}
 
-          {visiblePlaylists.length ? (
+          {tab === "playlists" && visiblePlaylists.length ? (
             <div
               className={
                 playlistDisplay === "compact"
@@ -1224,87 +933,37 @@ export default function App() {
                 <span className="taste__col-more" aria-hidden="true" />
               </div>
               <ul className="taste__list">
-                {visiblePlaylists.map((row) => (
-                  <PlaylistRowView
-                    key={row.uri}
-                    row={row}
-                    display={playlistDisplay}
-                    pending={pendingUris.has(row.uri)}
-                    checked={selected.has(row.uri)}
-                    menuOpen={openMenuUri === row.uri}
-                    onToggleSelected={toggleOneSelected}
-                    onToggle={(uri, isExcluded) => void applyExclusion([uri], !isExcluded)}
-                    onMenuToggle={() => setOpenMenuUri((current) => (current === row.uri ? null : row.uri))}
-                    onMenuClose={() => setOpenMenuUri(null)}
-                  />
-                ))}
+                <WindowedList
+                  items={visiblePlaylists}
+                  rowHeight={playlistDisplay === "compact" ? 38 : 64}
+                  getKey={(row) => row.uri}
+                  renderItem={(row) => (
+                    <PlaylistRowView
+                      row={row}
+                      display={playlistDisplay}
+                      pending={pendingUris.has(row.uri)}
+                      locked={busy}
+                      checked={selected.has(row.uri)}
+                      menuOpen={openMenuUri === row.uri}
+                      onToggleSelected={toggleOneSelected}
+                      onToggle={(uri, isExcluded) => void applyExclusion([uri], !isExcluded)}
+                      onMenuToggle={() => setOpenMenuUri((current) => (current === row.uri ? null : row.uri))}
+                      onMenuClose={() => setOpenMenuUri(null)}
+                    />
+                  )}
+                />
               </ul>
             </div>
-          ) : (
+          ) : tab === "playlists" ? (
             <EmptyState title={playlistEmptyTitle} body={playlistEmptyBody} />
-          )}
-        </div>
-      ) : null}
-
-      {status === "ready" && tab === "tracks" ? (
-        <div role="tabpanel" id="taste-panel-tracks" aria-labelledby="taste-tab-tracks">
-          <div className="taste__section-head">
-            <div>
-              <h2>Excluded Tracks</h2>
-              <p className="taste__section-copy">
-                Browse and remove exclusions from individual tracks that are left out of your taste profile.
-              </p>
-            </div>
-            <div className="taste__toolbar taste__toolbar--compact">
-              <SearchField
-                value={trackQuery}
-                placeholder="Search tracks, artists, or albums..."
-                label="Search tracks, artists, or albums"
-                onChange={(value) => {
-                  setTrackQuery(value);
-                  setSelected(new Set());
-                }}
-              />
-              <label className="taste__select-wrap">
-                <span>Sort:</span>
-                <select
-                  value={trackSort}
-                  aria-label="Sort tracks"
-                  onChange={(event) => {
-                    setTrackSort(event.target.value as TrackSort);
-                    setSelected(new Set());
-                  }}
-                >
-                  <option value="name">Track name</option>
-                  <option value="name-desc">Track name Z–A</option>
-                  <option value="artist">Artist</option>
-                  <option value="album">Album</option>
-                  <option value="recent">Recently excluded</option>
-                </select>
-              </label>
-            </div>
-          </div>
-
-          {selectedVisible.length ? (
-            <BulkBar
-              label={`${selectedVisible.length} ${selectedVisible.length === 1 ? "track" : "tracks"} selected`}
-              busy={busy}
-              primaryLabel="Remove selected exclusions"
-              onPrimary={() => {
-                if (
-                  selectedExcluded.length >= MASS_CONFIRM_MIN &&
-                  !window.confirm(`Remove exclusion for ${trackCount(selectedExcluded.length)}?`)
-                ) {
-                  return;
-                }
-                void applyExclusion(selectedExcluded, false);
-              }}
-              onClear={() => setSelected(new Set())}
-            />
-          ) : null}
-
-          {visibleTracks.length ? (
-            <div className="taste__table taste__table--tracks">
+          ) : visibleTracks.length ? (
+            <div
+              className={
+                playlistDisplay === "compact"
+                  ? "taste__table taste__table--tracks taste__table--compact"
+                  : "taste__table taste__table--tracks"
+              }
+            >
               <div className="taste__table-head">
                 <SelectAll
                   checked={allSelected}
@@ -1326,31 +985,29 @@ export default function App() {
                 <span className="taste__col-more" aria-hidden="true" />
               </div>
               <ul className="taste__list">
-                {visibleTracks.map((row) => (
-                  <TrackRowView
-                    key={row.uri}
-                    row={row}
-                    pending={pendingUris.has(row.uri)}
-                    checked={selected.has(row.uri)}
-                    menuOpen={openMenuUri === row.uri}
-                    onToggleSelected={toggleOneSelected}
-                    onRemove={() => void applyExclusion([row.uri], false)}
-                    onMenuToggle={() => setOpenMenuUri((current) => (current === row.uri ? null : row.uri))}
-                    onMenuClose={() => setOpenMenuUri(null)}
-                  />
-                ))}
+                <WindowedList
+                  items={visibleTracks}
+                  rowHeight={playlistDisplay === "compact" ? 38 : 64}
+                  getKey={(row) => row.uri}
+                  renderItem={(row) => (
+                    <TrackRowView
+                      row={row}
+                      display={playlistDisplay}
+                      pending={pendingUris.has(row.uri)}
+                      locked={busy}
+                      checked={selected.has(row.uri)}
+                      menuOpen={openMenuUri === row.uri}
+                      onToggleSelected={toggleOneSelected}
+                      onToggle={(uri, isExcluded) => void applyExclusion([uri], !isExcluded)}
+                      onMenuToggle={() => setOpenMenuUri((current) => (current === row.uri ? null : row.uri))}
+                      onMenuClose={() => setOpenMenuUri(null)}
+                    />
+                  )}
+                />
               </ul>
             </div>
           ) : (
-            <EmptyState
-              title={trackNeedle ? "No matching tracks" : "No excluded tracks"}
-              body={
-                trackNeedle
-                  ? "Try another search."
-                  : "You don't currently have any individually excluded tracks from your taste profile."
-              }
-              icon={<MutedNoteIcon />}
-            />
+            <EmptyState title={trackEmptyTitle} body={trackEmptyBody} icon={<MutedNoteIcon />} />
           )}
         </div>
       ) : null}
@@ -1372,19 +1029,31 @@ export default function App() {
   );
 }
 
+function LastUpdated({ at }: { at: number }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, [at]);
+  return (
+    <p className="taste__updated" aria-live="polite">
+      {formatRelative(at, now)}
+    </p>
+  );
+}
+
 function SummaryCard({
   tone,
   icon,
   value,
   label,
 }: {
-  tone: "warn" | "ok" | "neutral";
+  tone: "warn" | "ok";
   icon: React.ReactNode;
   value: number;
   label: string;
 }) {
-  const iconClass =
-    tone === "warn" ? "taste__stat-icon taste__stat-icon--warn" : tone === "ok" ? "taste__stat-icon taste__stat-icon--ok" : "taste__stat-icon";
+  const iconClass = tone === "warn" ? "taste__stat-icon taste__stat-icon--warn" : "taste__stat-icon taste__stat-icon--ok";
   return (
     <div className="taste__stat">
       <span className={iconClass} aria-hidden="true">
@@ -1737,6 +1406,7 @@ function PlaylistRowView({
   row,
   display,
   pending,
+  locked,
   checked,
   menuOpen,
   onToggleSelected,
@@ -1747,6 +1417,7 @@ function PlaylistRowView({
   row: DisplayPlaylist;
   display: PlaylistDisplay;
   pending: boolean;
+  locked: boolean;
   checked: boolean;
   menuOpen: boolean;
   onToggleSelected: (uri: string) => void;
@@ -1764,7 +1435,7 @@ function PlaylistRowView({
         <input
           type="checkbox"
           checked={checked}
-          disabled={pending}
+          disabled={locked}
           aria-label={`Select ${row.name}`}
           onChange={() => onToggleSelected(row.uri)}
         />
@@ -1797,7 +1468,7 @@ function PlaylistRowView({
         <button
           type="button"
           className={row.excluded ? "taste__btn taste__btn--row taste__btn--row-outline" : "taste__btn taste__btn--row taste__btn--primary"}
-          disabled={pending}
+          disabled={locked}
           aria-label={
             row.excluded
               ? `Remove exclusion for ${row.name}`
@@ -1820,7 +1491,7 @@ function PlaylistRowView({
           },
           {
             label: action,
-            disabled: pending,
+            disabled: locked,
             onSelect: () => onToggle(row.uri, row.excluded),
           },
         ]}
@@ -1831,36 +1502,43 @@ function PlaylistRowView({
 
 function TrackRowView({
   row,
+  display,
   pending,
+  locked,
   checked,
   menuOpen,
   onToggleSelected,
-  onRemove,
+  onToggle,
   onMenuToggle,
   onMenuClose,
 }: {
   row: DisplayTrack;
+  display: PlaylistDisplay;
   pending: boolean;
+  locked: boolean;
   checked: boolean;
   menuOpen: boolean;
   onToggleSelected: (uri: string) => void;
-  onRemove: () => void;
+  onToggle: (uri: string, isExcluded: boolean) => void;
   onMenuToggle: () => void;
   onMenuClose: () => void;
 }) {
+  const compact = display === "compact";
+  const action = row.excluded ? "Remove exclusion" : "Exclude";
+  const meta = row.artists || (row.detail === "unavailable" ? "Unavailable" : "");
   return (
     <li className={checked ? "taste__row taste__row--selected" : "taste__row"}>
       <label className="taste__check">
         <input
           type="checkbox"
           checked={checked}
-          disabled={pending}
+          disabled={locked}
           aria-label={`Select ${row.name}`}
           onChange={() => onToggleSelected(row.uri)}
         />
       </label>
       <div className="taste__media">
-        {row.image ? (
+        {compact ? null : row.image ? (
           <img className="taste__cover" src={row.image} alt="" />
         ) : (
           <div className="taste__cover taste__cover--empty" aria-hidden="true" />
@@ -1869,9 +1547,11 @@ function TrackRowView({
           <button type="button" className="taste__name" title={row.name} onClick={() => openTrack(row.uri)}>
             {row.name}
           </button>
-          <p className="taste__meta" title={row.artists || (row.unavailable ? "Unavailable" : "")}>
-            {row.artists || (row.unavailable ? "Unavailable" : "")}
-          </p>
+          {!compact && meta ? (
+            <p className="taste__meta" title={meta}>
+              {meta}
+            </p>
+          ) : null}
         </div>
       </div>
       <span className="taste__cell taste__cell-album" title={row.album}>
@@ -1882,12 +1562,16 @@ function TrackRowView({
       <div className="taste__row-actions">
         <button
           type="button"
-          className="taste__btn taste__btn--row taste__btn--primary"
-          disabled={pending}
-          aria-label={`Remove exclusion for ${row.name}`}
-          onClick={onRemove}
+          className={
+            row.excluded
+              ? "taste__btn taste__btn--row taste__btn--row-outline"
+              : "taste__btn taste__btn--row taste__btn--primary"
+          }
+          disabled={locked}
+          aria-label={row.excluded ? `Remove exclusion for ${row.name}` : `Exclude ${row.name} from your taste profile`}
+          onClick={() => onToggle(row.uri, row.excluded)}
         >
-          {pending ? "Working…" : "Remove exclusion"}
+          {pending ? "Working…" : action}
         </button>
       </div>
       <MoreActionsMenu
@@ -1901,9 +1585,9 @@ function TrackRowView({
             onSelect: () => openTrack(row.uri),
           },
           {
-            label: "Remove exclusion",
-            disabled: pending,
-            onSelect: onRemove,
+            label: action,
+            disabled: locked,
+            onSelect: () => onToggle(row.uri, row.excluded),
           },
         ]}
       />

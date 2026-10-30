@@ -5,7 +5,6 @@
 - `icon/`: matching extracted symbol (transparent SVG/PNG), dark and light rounded-square app icons (SVG, PNG sizes 64-1024, PDF).
 - `favicon/`: ICO containing multiple sizes, favicons 16/32/48/64, Apple touch icon 180, Android icons 192/512.
 - `guidelines/`: visual preview and brand guidance.
-- `source/`: original approved raster logo, preserved unchanged.
 
 ## Color specifications
 - Primary mint-green sampled from the approved logo: `#26F98B` (vector approximation).
@@ -32,5 +31,5 @@
 - Icons with 16px details are necessarily limited. For small size rendering, visually inspect a favicon before release.
 
 ## Transparency / vector accuracy notes
-The approved artwork was supplied as a flattened raster with a dark background. Additional `approved-transparent` PNGs retain the original artwork color shading and antialiasing through a reconstructed transparency matte; use these for closest raster fidelity. SVGs here were vector-traced from foreground silhouettes, **not recovered from an original designer vector file**, and therefore use clean solid brand colors instead of raster glow/gradient. PNGs were rendered from these transparent vector recreations. The original is included for visual reference.
+The approved artwork was supplied as a flattened raster with a dark background. Additional `approved-transparent` PNGs retain the original artwork color shading and antialiasing through a reconstructed transparency matte; use these for closest raster fidelity. SVGs here were vector-traced from foreground silhouettes, **not recovered from an original designer vector file**, and therefore use clean solid brand colors instead of raster glow/gradient. PNGs were rendered from these transparent vector recreations. The untouched source raster is not in this folder.
 The full horizontal wordmark is converted to vector paths, so recipients do not need a specific installed font.

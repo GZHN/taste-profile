@@ -1,6 +1,6 @@
 {
   "name": "taste-profile",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "private": true,
   "scripts": {
     "write-version": "node ./scripts/write-version.mjs",
@@ -10,6 +10,9 @@
     "build-local": "spicetify-creator --out=dist --minify",
     "prewatch": "npm run write-version",
     "watch": "spicetify-creator --watch",
+    "typecheck": "tsc --noEmit",
+    "test:model": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test src/model.test.ts",
+    "test": "npm run test:model",
     "sync-release": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/sync-release.ps1",
     "sync-release:sh": "sh ./scripts/sync-release.sh"
   },

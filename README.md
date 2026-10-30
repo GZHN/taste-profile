@@ -64,7 +64,7 @@ Spotify uses your listening activity to personalize recommendations and experien
 - **Excluded tracks:** Browse and remove exclusions from individual tracks.
 - **Bulk actions:** Exclude or restore multiple playlists at once.
 - **Search and filtering:** Quickly find playlists and tracks, filter by exclusion status, and organize results.
-- **Flexible layouts:** Switch between standard and compact playlist views.
+- **Flexible layouts:** Switch between **Compact** and **List**. The choice is remembered and applies to the open list.
 - **Spotify-native experience:** A clean interface designed to blend seamlessly into Spotify through Spicetify.
 
 Whether you use playlists for discovering new music, background listening, or organizing different genres, Taste Profile helps you keep your Spotify recommendations aligned with your actual musical preferences.
@@ -84,6 +84,11 @@ The same setting in Spotify's playlist or track menu:
 ### Develop
 
 Spicetify Creator app (TypeScript / JSX). Source lives in `src/`.
+
+```bash
+npm run typecheck
+npm run test
+```
 
 Published Marketplace repo: [GZHN/taste-profile](https://github.com/GZHN/taste-profile). Workspace copy (if developing in the monorepo): `apps/taste-profile` in [spicetify-custom-apps](https://github.com/GZHN/spicetify-custom-apps).
 
@@ -187,13 +192,13 @@ spicetify apply
 
 ## Usage
 
-- Switch between **Playlists** and **Excluded Tracks** tabs
-- On Playlists: filter by **All**, **Excluded**, or **Not excluded**
+- Switch the list between **Playlists** and **Tracks**. The summary, exclusion filter, search, sort, and view stay on the page
+- Filter by **All**, **Excluded**, or **Not excluded**. Spotify only returns excluded tracks, so **Not excluded** shows tracks whose exclusion you removed until you refresh
 - Search playlists by name, folder, or owner — or tracks by name, artists, or album
 - Sort playlists by custom/library order, name, track count, or recently excluded; sort tracks by name, artist, album, or recently excluded
-- Switch playlist **View as** Compact (no artwork, denser rows) or List (artwork + metadata); preference is remembered
+- Switch **View as** Compact (no artwork, denser rows) or List (artwork + metadata). The choice applies to whichever list is open and is remembered
 - **Refresh** reloads exclusions and shows progress; last-updated time appears under the button
-- The last tab, filters, search, sort, and playlist view mode are restored the next time you open the app
+- The last list, filter, search, sort, and view mode are restored the next time you open the app
 - **Exclude** or **Remove exclusion** updates the same setting as the playlist or track context menu
 - Select rows for bulk exclude / remove-exclusion actions; large batches ask for confirmation
 - **Undo** restores the last change
@@ -205,7 +210,7 @@ spicetify apply
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for version history. Latest: **v1.6.1**.
+See [CHANGELOG.md](CHANGELOG.md) for version history. Latest: **v1.7.0**.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

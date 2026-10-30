@@ -5,6 +5,22 @@ All notable changes to Taste Profile are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-10-30
+
+### Fixed
+
+- A Spotify request that never returns now stops at the 20-second load budget, and Refresh stays available
+- A failed refresh keeps the playlists and tracks already on screen
+- Excluded-track titles are no longer taken from a different song when decoration results are misaligned
+- Tracks whose details failed to load are labeled separately from tracks Spotify reports as unavailable
+- Another exclusion change waits until the current update finishes
+
+### Changed
+
+- Playlists and Tracks share one page. The tab only switches the table; summary, filter, search, sort, and Compact / List stay in place
+- Long playlist and track lists render a window of rows while scrolling
+- About copy uses the Compact and List view names
+
 ## [1.6.1] - 2026-10-27
 
 ### Changed
@@ -98,6 +114,7 @@ First release — list playlists excluded from your Spotify taste profile and ch
 - Exclude / include a playlist, a selection, or everything in the current view
 - Undo the last change
 
+[1.7.0]: https://github.com/GZHN/taste-profile/releases/tag/v1.7.0
 [1.6.1]: https://github.com/GZHN/taste-profile/releases/tag/v1.6.1
 [1.6.0]: https://github.com/GZHN/taste-profile/releases/tag/v1.6.0
 [1.5.0]: https://github.com/GZHN/taste-profile/releases/tag/v1.6.0
